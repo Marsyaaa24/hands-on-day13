@@ -3,7 +3,9 @@ import 'package:flutter_note/db_helper.dart';
 import 'package:flutter_note/models/note_model.dart';
 
 class NoteEditorPage extends StatefulWidget {
-  const NoteEditorPage({Key? key}) : super(key: key);
+  final NoteModel? note;
+
+  const NoteEditorPage({Key? key, this.note}) : super(key: key);
 
   @override
   State<NoteEditorPage> createState() => _NoteEditorPageState();
@@ -17,6 +19,16 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   final _contentController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+
+    if (widget.note != null) {
+      _titleController.text = widget.note!.title;
+      _contentController.text = widget.note!.content;
+    }
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
@@ -25,9 +37,32 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
 
   Future _saveNote() async {
     if (_formKey.currentState!.validate()) {
-      // Get the note data
       final title = _titleController.text;
       final content = _contentController.text;
+
+      if (widget.note != null) {
+        final updatedNote = NoteModel(
+          noteId: widget.note!.noteId,
+          title: title,
+          content: content,
+          createdAt: widget.note!.createdAt,
+          updatedAt: DateTime.now().toIso8601String(),
+          pinned: widget.note!.pinned,
+        );
+
+        final result = await dbHelper.updateNote(updatedNote);
+
+        print("Updating note ID ${updatedNote.noteId}");
+
+        if (result > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Note updated successfully!")),
+          );
+        }
+
+        Navigator.pop(context, true);
+        return;
+      }
 
       final result = dbHelper.insertItem(
         NoteModel(
@@ -40,28 +75,24 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         ),
       );
 
-      // TODO: Save the note to database or storage
       print(
         'Saving note - Title: $title, Content: $content, Id: ${await result}',
       );
 
-      // Show success message
       if (await result > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Note saved successfully!'),
-            backgroundColor: Colors.green,
+            backgroundColor: Color.fromARGB(255, 228, 0, 156),
           ),
         );
       }
 
-      // Navigate back
       Navigator.pop(context, result);
     }
   }
 
   void _cancelNote() {
-    // Show confirmation dialog if there's unsaved content
     if (_titleController.text.isNotEmpty ||
         _contentController.text.isNotEmpty) {
       showDialog(
@@ -78,8 +109,8 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(context); // Close dialog
-                Navigator.pop(context); // Go back to previous page
+                Navigator.pop(context);
+                Navigator.pop(context);
               },
               child: const Text('Discard'),
             ),
@@ -94,7 +125,10 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New Note'), elevation: 0),
+      appBar: AppBar(
+        title: Text(widget.note == null ? 'New Note' : 'Edit Note'), 
+        elevation: 0,
+      ),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -102,7 +136,6 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Title field
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
@@ -122,8 +155,6 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                 textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 16),
-
-              // Content field
               TextFormField(
                 controller: _contentController,
                 decoration: const InputDecoration(
@@ -145,11 +176,8 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 24),
-
-              // Buttons
               Row(
                 children: [
-                  // Cancel button
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _cancelNote,
@@ -161,13 +189,11 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                     ),
                   ),
                   const SizedBox(width: 16),
-
-                  // Save button
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _saveNote,
                       icon: const Icon(Icons.save),
-                      label: const Text('Save'),
+                      label: Text(widget.note == null ? 'Save' : 'Update'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),

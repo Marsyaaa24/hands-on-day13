@@ -10,23 +10,21 @@ class DbHelper {
   DbHelper._privateConstructor();
   static final DbHelper instance = DbHelper._privateConstructor();
 
-  Future<Database> _initialDatabase() async {
-    // Implementation for initializing the database
-    // This is a placeholder; actual implementation will vary
-    return await openDatabase(
-      join(await getDatabasesPath(), _databaseName),
-      version: _databaseVersion,
-      onCreate: (db, version) async {
-        createTable(db);
-      },
-    );
-  }
-
   static Database? _database;
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initialDatabase();
     return _database!;
+  }
+
+  Future<Database> _initialDatabase() async {
+    return await openDatabase(
+      join(await getDatabasesPath(), _databaseName),
+      version: _databaseVersion,
+      onCreate: (db, version) async {
+        await createTable(db);
+      },
+    );
   }
 
   Future createTable(Database db) async {
@@ -39,34 +37,59 @@ class DbHelper {
         updated_at TEXT,
         pinned INTEGER NOT NULL DEFAULT 0
       )
-    '''); // for pinned column if 1 = true, 0 = false
+    ''');
   }
 
   Future<int> insertItem(NoteModel note) async {
     final db = await database;
-    final data = note.toJson();
-
-    final id = await db.insert(
+    return await db.insert(
       _tableName,
-      data,
+      note.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    return id;
+  }
+
+  Future<int> updateItem(NoteModel note) async {
+    final db = await database;
+
+    final newData = note.toJson();
+
+    newData['updated_at'] = DateTime.now().toIso8601String();
+
+    return await db.update(
+      _tableName,
+      newData,
+      where: "note_id = ?",
+      whereArgs: [note.noteId],
+    );
+  }
+
+  Future<int> updateNote(NoteModel note) => updateItem(note);
+
+
+  Future<int> deleteNote(int id) async {
+    final db = await database;
+
+    return await db.delete(
+      _tableName,
+      where: "note_id = ?",
+      whereArgs: [id],
+    );
   }
 
   Future<List<NoteModel>> fetchNotes() async {
     final db = await database;
+
     final maps = await db.query(
       _tableName,
       orderBy: "pinned DESC, created_at DESC",
     );
 
-    if (maps.isEmpty) {
-      return [];
-    }
+    if (maps.isEmpty) return [];
 
-    return List.generate(maps.length, (i) {
-      return NoteModel.fromJson(maps[i]);
-    });
+    return List.generate(
+      maps.length,
+      (i) => NoteModel.fromJson(maps[i]),
+    );
   }
 }

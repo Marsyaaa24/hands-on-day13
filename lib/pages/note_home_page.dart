@@ -22,41 +22,34 @@ class _NoteListPageState extends State<NoteHomePage> {
   }
 
   Future<void> _loadNotes() async {
-    // TODO: Load notes from database
-    // Simulating database with sample data
     final noteList = await dbHelper.fetchNotes();
-
     setState(() {
       _notes = noteList;
     });
   }
 
   void _navigateToCreateNote() async {
-    // Navigate to create note page
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const NoteEditorPage()),
     );
 
-    // Reload notes after returning from create page
     if (result != null) {
       _loadNotes();
     }
   }
 
   void _navigateToEditNote(NoteModel note) async {
-    // Navigate to edit note page
-    // final result = await Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => NoteEditorPage(note: note),
-    //   ),
-    // );
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NoteEditorPage(note: note),
+      ),
+    );
 
-    // Reload notes after returning from edit page
-    // if (result != null) {
-    //   _loadNotes();
-    // }
+    if (result != null) {
+      _loadNotes();
+    }
   }
 
   void _deleteNote(int noteId) {
@@ -71,17 +64,19 @@ class _NoteListPageState extends State<NoteHomePage> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              // TODO: Delete from database
-              // setState(() {
-              //   //_notes.removeWhere((note) => note.id == noteId);
-              // });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Note deleted')));
+            onPressed: () async {
+              await dbHelper.deleteNote(noteId);
+
+              Navigator.pop(context); 
+
+              _loadNotes();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Note deleted')),
+              );
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child:
+                const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -175,10 +170,13 @@ class _NoteListPageState extends State<NoteHomePage> {
                 ),
               ],
             ),
+
+            // DELETE BUTTON
             trailing: IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               onPressed: () => _deleteNote(note.noteId),
             ),
+
             onTap: () => _navigateToEditNote(note),
           ),
         );
